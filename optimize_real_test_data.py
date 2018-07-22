@@ -119,7 +119,7 @@ def otto_model_L2(x):
 def otto_model_L_inf(x):
     """
     return the L infity norm of the otto model for x from some test data
-    this returns the maximum deviation in the real + max deviation imaginary 
+    this returns the maximum deviation in the real + max deviation imaginary
 
     Input:
     x: 1D Numpy array or list with 5 elements as defined below
@@ -221,19 +221,19 @@ def plot_results(x_l1, x_l2, x_linf, x_k, title):
     plt.yscale('log')
     plt.legend()
     plt.show()
-    
+
     # real residuals
     # er = zr - zr_x
     # imaginary residuals
     # ej = zj - zj_x
-    
+
     # plt.figure()
     # plt.title(title)
     # plt.semilogx(f, er, 'o')
     # plt.xlabel('$f$')
     # plt.ylabel('Real residuals')
     # plt.grid()
-    
+
     # plt.figure()
     # ptl.title(title)
     # plt.semilogx(f, ej, 'o')
