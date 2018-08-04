@@ -1,11 +1,12 @@
 from __future__ import print_function, division, absolute_import
 import numpy as np
-from scipy.optimize import fmin_l_bfgs_b
+from scipy.optimize import fmin_l_bfgs_b, minimize
 import pyfde
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from time import time
+import constrNMPy as cNM
 
 sns.set()
 
@@ -119,7 +120,7 @@ def otto_model_L2(x):
 def otto_model_L_inf(x):
     """
     return the L infity norm of the otto model for x from some test data
-    this returns the maximum deviation in the real + max deviation imaginary
+    this returns the maximum deviation in the real + max deviation imaginary 
 
     Input:
     x: 1D Numpy array or list with 5 elements as defined below
@@ -189,7 +190,7 @@ def otto_model_L2_Kait(x):
     return L2
 
 
-def plot_results(x_l1, x_l2, x_linf, x_k, title):
+def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     """
     plots the results of all of the optimizations
 
@@ -220,20 +221,51 @@ def plot_results(x_l1, x_l2, x_linf, x_k, title):
     plt.xscale('log')
     plt.yscale('log')
     plt.legend()
-    plt.show()
+    plt.savefig('figs/' + title + 'rj.png', dpi=300, bbox_inches='tight')
+    
+    plt.figure()
+    plt.title(title)
+    plt.plot(f, zj, '.-', label='Test Data')
+    plt.plot(f, zj_l1, 'o', label='L1 norm')
+    plt.plot(f, zj_l2, 's', label='L2 norm')
+    plt.plot(f, zj_linf, '>', label=r'L$\infty$ norm')
+    plt.plot(f, zj_lk, '<', label="Kaitlynn's norm")
+    plt.xlabel(r'$f$')
+    plt.ylabel(r'$Z_j (\Omega)$')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.savefig('figs/' + title + 'j.png', dpi=300, bbox_inches='tight')
 
+    
+    plt.figure()
+    plt.title(title)
+    plt.plot(f, zr, '.-', label='Test Data')
+    plt.plot(f, zr_l1, 'o', label='L1 norm')
+    plt.plot(f, zr_l2, 's', label='L2 norm')
+    plt.plot(f, zr_linf, '>', label=r'L$\infty$ norm')
+    plt.plot(f, zr_lk, '<', label="Kaitlynn's norm")
+    plt.xlabel(r'$f$')
+    plt.ylabel(r'$Z_r (\Omega)$')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.show()
+    plt.savefig('figs/' + title + 'r.png', dpi=300, bbox_inches='tight')
+
+    
     # real residuals
     # er = zr - zr_x
     # imaginary residuals
     # ej = zj - zj_x
-
+    
     # plt.figure()
     # plt.title(title)
     # plt.semilogx(f, er, 'o')
     # plt.xlabel('$f$')
     # plt.ylabel('Real residuals')
     # plt.grid()
-
+    
     # plt.figure()
     # ptl.title(title)
     # plt.semilogx(f, ej, 'o')
@@ -242,8 +274,90 @@ def plot_results(x_l1, x_l2, x_linf, x_k, title):
     # plt.grid()
     # plt.show()
 
+    
+def plot_l1_results(f, x_l1, title):
+    """
+    plots the results of all of the optimizations
 
-def opt_routine(obj_function, runs=10):
+    Input:
+    x: 1D Numpy array or list with 5 elements as defined below
+    x[0] = alpha CPE phase factor
+    x[1] = K CPE magnitude factor
+    x[2] = ren encapsulation resistance
+    x[3] = rex extracellular resistance
+    x[4] = am membrane area in cm**2
+    """
+    # plot the fitted data
+    zr_l1, zj_l1 = otto_model_create_data(x_l1)
+    zr_l2, zj_l2 = otto_model_create_data(x_l2)
+    zr_linf, zj_linf = otto_model_create_data(x_linf)
+    zr_lk, zj_lk = otto_model_create_data(x_lk)
+
+    plt.figure()
+    plt.title(title)
+    plt.plot(zr, zj, '.-', label='Test Data')
+    plt.plot(zr_l1, zj_l1, 'o', label='L1 norm')
+    plt.plot(zr_l2, zj_l2, 's', label='L2 norm')
+    plt.plot(zr_linf, zj_linf, '>', label=r'L$\infty$ norm')
+    plt.plot(zr_lk, zj_lk, '<', label="Kaitlynn's norm")
+
+    plt.xlabel(r'$Z_r (\Omega)$')
+    plt.ylabel(r'$Z_j (\Omega)$')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    
+    plt.figure()
+    plt.title(title)
+    plt.plot(f, zj, '.-', label='Test Data')
+    plt.plot(f, zj_l1, 'o', label='L1 norm')
+    plt.plot(f, zj_l2, 's', label='L2 norm')
+    plt.plot(f, zj_linf, '>', label=r'L$\infty$ norm')
+    plt.plot(f, zj_lk, '<', label="Kaitlynn's norm")
+    plt.xlabel(r'$f$')
+    plt.ylabel(r'$Z_j (\Omega)$')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    
+    plt.figure()
+    plt.title(title)
+    plt.plot(f, zr, '.-', label='Test Data')
+    plt.plot(f, zr_l1, 'o', label='L1 norm')
+    plt.plot(f, zr_l2, 's', label='L2 norm')
+    plt.plot(f, zr_linf, '>', label=r'L$\infty$ norm')
+    plt.plot(f, zr_lk, '<', label="Kaitlynn's norm")
+    plt.xlabel(r'$f$')
+    plt.ylabel(r'$Z_r (\Omega)$')
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.legend()
+    plt.show()
+
+
+def my_opt_fun(obj_function):
+    # run differential evolution
+    solver = pyfde.ClassicDE(obj_function, n_dim=5, n_pop=50,
+                                limits=bounds, minimize=True)
+    solver.cr, solver.f = 1.0, 0.9
+    best, fit = solver.run(n_it=10000)
+    fit = fit*-1
+    # polish with constrained nelder mead simplex optimization
+    res_cnm = cNM.constrNM(obj_function, best, bounds[:, 0], bounds[:, 1],
+                            full_output=True, xtol=0.000001, ftol=0.000001)
+    # if polish better save polish results
+    if res_cnm['fopt'] < fit:
+        opts = res_cnm['fopt']
+        results_x = res_cnm['xopt']
+        # print('Polish was better')
+    else:
+        opts = fit
+        results_x = best
+        # print('Polish did not help')
+    return results_x, opts
+
+
+def opt_routine(obj_function, runs=50):
     """
     An optimization routine which first runs a Differential Evolution
     (global optimization), then runs a Bounded BFGS (gradient optimization)
@@ -273,17 +387,13 @@ def opt_routine(obj_function, runs=10):
         solver.cr, solver.f = 1.0, 0.9
         best, fit = solver.run(n_it=10000)
         fit = fit*-1
-        # polish with L BFGS
-        res_bfgs = fmin_l_bfgs_b(obj_function, best, fprime=None, args=(),
-                                 approx_grad=True, bounds=bounds, m=10,
-                                 factr=10000000.0, pgtol=1e-05, epsilon=1e-04,
-                                 iprint=-1, maxfun=15000, maxiter=15000,
-                                 disp=None, callback=None, maxls=20)
+        # polish with constrained nelder mead simplex optimization
+        res_cnm = cNM.constrNM(obj_function, best, bounds[:, 0], bounds[:, 1],
+                               full_output=True, xtol=0.000001, ftol=0.000001)
         # if polish better save polish results
-        # print(fit, res_bfgs[1])
-        if res_bfgs[1] < fit:
-            opts[i] = res_bfgs[1]
-            results_x[i] = res_bfgs[0]
+        if res_cnm['fopt'] < fit:
+            opts[i] = res_cnm['fopt']
+            results_x[i] = res_cnm['xopt']
             # print('Polish was better')
         else:
             opts[i] = fit
