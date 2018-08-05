@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from time import time
 import constrNMPy as cNM
+from joblib import Parallel, delayed
 
 sns.set()
 
@@ -120,7 +121,7 @@ def otto_model_L2(x):
 def otto_model_L_inf(x):
     """
     return the L infity norm of the otto model for x from some test data
-    this returns the maximum deviation in the real + max deviation imaginary 
+    this returns the maximum deviation in the real + max deviation imaginary
 
     Input:
     x: 1D Numpy array or list with 5 elements as defined below
@@ -206,7 +207,7 @@ def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     zr_l1, zj_l1 = otto_model_create_data(x_l1)
     zr_l2, zj_l2 = otto_model_create_data(x_l2)
     zr_linf, zj_linf = otto_model_create_data(x_linf)
-    zr_lk, zj_lk = otto_model_create_data(x_lk)
+    zr_lk, zj_lk = otto_model_create_data(x_k)
 
     plt.figure()
     plt.title(title)
@@ -222,7 +223,7 @@ def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     plt.yscale('log')
     plt.legend()
     plt.savefig('figs/' + title + 'rj.png', dpi=300, bbox_inches='tight')
-    
+
     plt.figure()
     plt.title(title)
     plt.plot(f, zj, '.-', label='Test Data')
@@ -237,7 +238,6 @@ def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     plt.legend()
     plt.savefig('figs/' + title + 'j.png', dpi=300, bbox_inches='tight')
 
-    
     plt.figure()
     plt.title(title)
     plt.plot(f, zr, '.-', label='Test Data')
@@ -253,19 +253,18 @@ def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     plt.show()
     plt.savefig('figs/' + title + 'r.png', dpi=300, bbox_inches='tight')
 
-    
     # real residuals
     # er = zr - zr_x
     # imaginary residuals
     # ej = zj - zj_x
-    
+
     # plt.figure()
     # plt.title(title)
     # plt.semilogx(f, er, 'o')
     # plt.xlabel('$f$')
     # plt.ylabel('Real residuals')
     # plt.grid()
-    
+
     # plt.figure()
     # ptl.title(title)
     # plt.semilogx(f, ej, 'o')
@@ -274,90 +273,51 @@ def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     # plt.grid()
     # plt.show()
 
-    
-def plot_l1_results(f, x_l1, title):
-    """
-    plots the results of all of the optimizations
-
-    Input:
-    x: 1D Numpy array or list with 5 elements as defined below
-    x[0] = alpha CPE phase factor
-    x[1] = K CPE magnitude factor
-    x[2] = ren encapsulation resistance
-    x[3] = rex extracellular resistance
-    x[4] = am membrane area in cm**2
-    """
-    # plot the fitted data
-    zr_l1, zj_l1 = otto_model_create_data(x_l1)
-    zr_l2, zj_l2 = otto_model_create_data(x_l2)
-    zr_linf, zj_linf = otto_model_create_data(x_linf)
-    zr_lk, zj_lk = otto_model_create_data(x_lk)
-
-    plt.figure()
-    plt.title(title)
-    plt.plot(zr, zj, '.-', label='Test Data')
-    plt.plot(zr_l1, zj_l1, 'o', label='L1 norm')
-    plt.plot(zr_l2, zj_l2, 's', label='L2 norm')
-    plt.plot(zr_linf, zj_linf, '>', label=r'L$\infty$ norm')
-    plt.plot(zr_lk, zj_lk, '<', label="Kaitlynn's norm")
-
-    plt.xlabel(r'$Z_r (\Omega)$')
-    plt.ylabel(r'$Z_j (\Omega)$')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.legend()
-    
-    plt.figure()
-    plt.title(title)
-    plt.plot(f, zj, '.-', label='Test Data')
-    plt.plot(f, zj_l1, 'o', label='L1 norm')
-    plt.plot(f, zj_l2, 's', label='L2 norm')
-    plt.plot(f, zj_linf, '>', label=r'L$\infty$ norm')
-    plt.plot(f, zj_lk, '<', label="Kaitlynn's norm")
-    plt.xlabel(r'$f$')
-    plt.ylabel(r'$Z_j (\Omega)$')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.legend()
-    
-    plt.figure()
-    plt.title(title)
-    plt.plot(f, zr, '.-', label='Test Data')
-    plt.plot(f, zr_l1, 'o', label='L1 norm')
-    plt.plot(f, zr_l2, 's', label='L2 norm')
-    plt.plot(f, zr_linf, '>', label=r'L$\infty$ norm')
-    plt.plot(f, zr_lk, '<', label="Kaitlynn's norm")
-    plt.xlabel(r'$f$')
-    plt.ylabel(r'$Z_r (\Omega)$')
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.legend()
-    plt.show()
-
 
 def my_opt_fun(obj_function):
     # run differential evolution
-    solver = pyfde.ClassicDE(obj_function, n_dim=5, n_pop=50,
-                                limits=bounds, minimize=True)
-    solver.cr, solver.f = 1.0, 0.9
-    best, fit = solver.run(n_it=10000)
+    # solver = pyfde.ClassicDE(obj_function, n_dim=5, n_pop=50,
+    #                          limits=bounds, minimize=True)
+    solver = pyfde.JADE(obj_function, n_dim=5, n_pop=50,
+                        limits=bounds, minimize=True)
+    solver.c = np.random.random()
+    solver.p = np.random.random()
+    solver.cr = np.random.random()
+    solver.f = np.random.random()
+    # solver.cr, solver.f = 1.0, 0.9
+    best, fit = solver.run(n_it=1000)
     fit = fit*-1
     # polish with constrained nelder mead simplex optimization
     res_cnm = cNM.constrNM(obj_function, best, bounds[:, 0], bounds[:, 1],
-                            full_output=True, xtol=0.000001, ftol=0.000001)
+                           full_output=True, xtol=1e-15, ftol=1e-15)
     # if polish better save polish results
     if res_cnm['fopt'] < fit:
         opts = res_cnm['fopt']
         results_x = res_cnm['xopt']
-        # print('Polish was better')
+        print('Polish was better')
     else:
         opts = fit
         results_x = best
-        # print('Polish did not help')
-    return results_x, opts
+        print('Polish did not help')
+    # res_bfgs = fmin_l_bfgs_b(obj_function, best, fprime=None, args=(),
+    #                          approx_grad=True, bounds=bounds, m=10,
+    #                          factr=10000000.0, pgtol=1e-05, epsilon=1e-05,
+    #                          iprint=-1, maxfun=100000, maxiter=15000,
+    #                          disp=None, callback=None, maxls=100)
+    # if polish better save polish results
+    # print(fit, res_bfgs[1])
+    # if res_bfgs[1] < fit:
+    #     opts = res_bfgs[1]
+    #     results_x = res_bfgs[0]
+    #     print('Polish was better')
+    # else:
+    #     opts = fit
+    #     results_x = best
+    #     print('Polish did not help')
+    return np.append(results_x, opts)
 
 
-def opt_routine(obj_function, runs=50):
+def opt_routine(obj_function, runs=50, n_proc=4):
     """
     An optimization routine which first runs a Differential Evolution
     (global optimization), then runs a Bounded BFGS (gradient optimization)
@@ -380,25 +340,10 @@ def opt_routine(obj_function, runs=50):
     results_x = np.zeros((runs, 5))
     opts = np.zeros(runs)
     t0 = time()
-    for i in range(runs):
-        # run differential evolution
-        solver = pyfde.ClassicDE(obj_function, n_dim=5, n_pop=50,
-                                 limits=bounds, minimize=True)
-        solver.cr, solver.f = 1.0, 0.9
-        best, fit = solver.run(n_it=10000)
-        fit = fit*-1
-        # polish with constrained nelder mead simplex optimization
-        res_cnm = cNM.constrNM(obj_function, best, bounds[:, 0], bounds[:, 1],
-                               full_output=True, xtol=0.000001, ftol=0.000001)
-        # if polish better save polish results
-        if res_cnm['fopt'] < fit:
-            opts[i] = res_cnm['fopt']
-            results_x[i] = res_cnm['xopt']
-            # print('Polish was better')
-        else:
-            opts[i] = fit
-            results_x[i] = best
-            # print('Polish did not help')
+    opt_res = Parallel(n_jobs=n_proc)(delayed(my_opt_fun)(obj_function) for _ in range(runs))  # noqa
+    opt_res = np.array(opt_res)
+    results_x = opt_res[:, :5]
+    opts = opt_res[:, 5]
     t1 = time()
     print('Optimization runtime %0.4f seconds' % (t1-t0))
     # find the best result
@@ -407,13 +352,15 @@ def opt_routine(obj_function, runs=50):
     best_x = results_x[best_index]
     print('Objective value:', best_opt)
     print('Paramters:', best_x, '\n')
+    print(opts)
     return results_x, opts, best_x, best_opt
 
 
 # optimization bounds
-bounds = np.ones((5, 2))*1e-3
+bounds = np.ones((5, 2))*1e-4
 bounds[:, 1] = 1000.0
-bounds[4, 0] = 1.0
+bounds[3, 1] = 1e30
+bounds[4, 0] = 1e-10
 bounds[0, 1] = 10.0
 
 # my data set
@@ -437,19 +384,21 @@ for ind, data in enumerate(data_list):
         # # generate fake results
         # zr, zj = otto_model_create_data([0.68, 8.8, 34.0, 45.0, 89.0])
         # peform the optimizations
-        _, _, x_l1, opt_l1 = opt_routine(otto_model_L1)
-        _, _, x_l2, opt_l2 = opt_routine(otto_model_L2)
-        _, _, x_linf, opt_linf = opt_routine(otto_model_L_inf)
+        # _, _, x_l1, opt_l1 = opt_routine(otto_model_L1)
+        # _, _, x_l2, opt_l2 = opt_routine(otto_model_L2)
+        # _, _, x_linf, opt_linf = opt_routine(otto_model_L_inf)
         _, _, x_lk, opt_lk = opt_routine(otto_model_L2_Kait)
-        plot_results(x_l1, x_l2, x_linf, x_lk,
-                     'Blue rat ' + data + ' rep ' + str(i+1))
+        # plot_results(x_l1, x_l2, x_linf, x_lk,
+        #              'Blue rat ' + data + ' rep ' + str(i+1))
 
-        # save the results into the array
-        res_l1[ind, :5] = x_l1
-        res_l1[ind, 5] = opt_l1
-        res_l2[ind, :5] = x_l2
-        res_l2[ind, 5] = opt_l2
-        res_linf[ind, :5] = x_linf
-        res_linf[ind, 5] = opt_linf
+        # # save the results into the array
+        # res_l1[ind, :5] = x_l1
+        # res_l1[ind, 5] = opt_l1
+        # res_l2[ind, :5] = x_l2
+        # res_l2[ind, 5] = opt_l2
+        # res_linf[ind, :5] = x_linf
+        # res_linf[ind, 5] = opt_linf
         res_lk[ind, :5] = x_lk
         res_lk[ind, 5] = opt_lk
+        break
+    break
