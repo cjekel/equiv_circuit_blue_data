@@ -294,11 +294,11 @@ def my_opt_fun(obj_function):
     if res_cnm['fopt'] < fit:
         opts = res_cnm['fopt']
         results_x = res_cnm['xopt']
-        print('Polish was better')
+        # print('Polish was better')
     else:
         opts = fit
         results_x = best
-        print('Polish did not help')
+        # print('Polish did not help')
     # res_bfgs = fmin_l_bfgs_b(obj_function, best, fprime=None, args=(),
     #                          approx_grad=True, bounds=bounds, m=10,
     #                          factr=10000000.0, pgtol=1e-05, epsilon=1e-05,
