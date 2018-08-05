@@ -1,6 +1,6 @@
 from __future__ import print_function, division, absolute_import
 import numpy as np
-from scipy.optimize import fmin_l_bfgs_b, minimize
+from scipy.optimize import fmin_l_bfgs_b, least_squares, fmin_slsqp, minimize
 import pyfde
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -191,6 +191,42 @@ def otto_model_L2_Kait(x):
     return L2
 
 
+def otto_model_L2_Kait_vec(x):
+    """
+    return the L2 norm with Kaitlynn's nomalized deviation
+    of the otto model for x from some test data
+
+    Input:
+    x: 1D Numpy array or list with 5 elements as defined below
+    x[0] = alpha CPE phase factor
+    x[1] = K CPE magnitude factor
+    x[2] = ren encapsulation resistance
+    x[3] = rex extracellular resistance
+    x[4] = am membrane area in cm**2
+    """
+
+    # glial encapsulation
+    am = x[4]     # membrane area (cm**2)
+    cm = 1e-6*am  # cell membrane capaacitance (uf/cm**2)
+    rm = 3.33/am  # Cell membrane resistivity (ohm*cm**2)
+
+    # 1j in Python is sqrt(-1.0)
+    ecpe = 1.0 / (((1j*2*np.pi*f)**x[0])*(x[1]/1e6))
+    ren = (x[2]*1e3) * np.ones(n)
+    rex = (x[3]*1e3) * np.ones(n)
+
+    # 2 parallel RC circuits in series
+    cell_membrane = (1.0/((1j*2*np.pi*f*cm)+(1.0/rm))) + \
+                    (1.0/((1j*2*np.pi*f*cm)+(1.0/rm)))
+    zmag = np.sqrt((zr**2) + (zj**2))
+
+    # combine total impedances
+    ztot = ecpe + ren + (1.0 / ((1.0/(cell_membrane))+(1.0/rex)))
+    e = (((zr-np.real(ztot))**2)/(np.abs(zmag))) + \
+        (((zj-np.abs(np.imag(ztot)))**2)/(np.abs(zmag)))
+    return e
+
+
 def plot_results(f, x_l1, x_l2, x_linf, x_k, title):
     """
     plots the results of all of the optimizations
@@ -285,20 +321,21 @@ def my_opt_fun(obj_function):
     solver.cr = np.random.random()
     solver.f = np.random.random()
     # solver.cr, solver.f = 1.0, 0.9
-    best, fit = solver.run(n_it=1000)
+    best, fit = solver.run(n_it=100)
     fit = fit*-1
-    # polish with constrained nelder mead simplex optimization
-    res_cnm = cNM.constrNM(obj_function, best, bounds[:, 0], bounds[:, 1],
-                           full_output=True, xtol=1e-15, ftol=1e-15)
-    # if polish better save polish results
-    if res_cnm['fopt'] < fit:
-        opts = res_cnm['fopt']
-        results_x = res_cnm['xopt']
-        # print('Polish was better')
-    else:
-        opts = fit
-        results_x = best
-        # print('Polish did not help')
+    # # polish with constrained nelder mead simplex optimization
+    # res_cnm = cNM.constrNM(obj_function, best, bounds[:, 0], bounds[:, 1],
+    #                        full_output=True, xtol=1e-15, ftol=1e-15)
+    # # if polish better save polish results
+    # if res_cnm['fopt'] < fit:
+    #     opts = res_cnm['fopt']
+    #     results_x = res_cnm['xopt']
+    #     # print('Polish was better')
+    # else:
+    #     opts = fit
+    #     results_x = best
+    #     # print('Polish did not help')
+
     # res_bfgs = fmin_l_bfgs_b(obj_function, best, fprime=None, args=(),
     #                          approx_grad=True, bounds=bounds, m=10,
     #                          factr=10000000.0, pgtol=1e-05, epsilon=1e-05,
@@ -314,6 +351,43 @@ def my_opt_fun(obj_function):
     #     opts = fit
     #     results_x = best
     #     print('Polish did not help')
+
+    # res_slsqp = fmin_slsqp(obj_function, best, bounds=bounds, iter=1e10,
+    #                        acc=1e-15, iprint=0, disp=None, full_output=1,
+    #                        epsilon=1.4901161193847656e-08, callback=None)
+    # # if polish better save polish results
+    # # print(fit, res_slsqp[1])
+    # if res_slsqp[1] < fit:
+    #     opts = res_slsqp[1]
+    #     results_x = res_slsqp[0]
+    #     print('Polish was better')
+    # else:
+    #     opts = fit
+    #     results_x = best
+
+    # res_ls = least_squares(otto_model_L2_Kait_vec, best, bounds=bounds.T, method='trf', ftol=1e-15, xtol=1e-15, gtol=1e-15, loss='linear')
+    # # print(res_ls)
+    # # if polish better save polish results
+    # # print(fit, res_slsqp[1])
+    # if res_ls.cost < fit:
+    #     opts = res_ls.cost
+    #     results_x = res_ls.x
+    #     print('Polish was better')
+    # else:
+    #     opts = fit
+    #     results_x = best
+    
+    res_tr = minimize(obj_function, best, method='trust-constr', bounds=bounds, tol=None, callback=None, options={'grad': None, 'xtol': 1e-15, 'gtol': 1e-15, 'barrier_tol': 1e-08, 'sparse_jacobian': None, 'maxiter': 1e10, 'verbose': 0, 'finite_diff_rel_step': None, 'initial_constr_penalty': 1.0, 'initial_tr_radius': 1.0, 'initial_barrier_parameter': 0.1, 'initial_barrier_tolerance': 0.1, 'factorization_method': None, 'disp': False})
+    # print(res_ls)
+    # if polish better save polish results
+    # print(fit, res_slsqp[1])
+    if res_tr.cost < fit:
+        opts = res_tr.cost
+        results_x = res_tr.x
+        print('Polish was better')
+    else:
+        opts = fit
+        results_x = best
     return np.append(results_x, opts)
 
 
@@ -360,6 +434,7 @@ def opt_routine(obj_function, runs=50, n_proc=4):
 bounds = np.ones((5, 2))*1e-4
 bounds[:, 1] = 1000.0
 bounds[3, 1] = 1e30
+bounds[2, 0] = 1e-2
 bounds[4, 0] = 1e-10
 bounds[0, 1] = 10.0
 
@@ -398,7 +473,30 @@ for ind, data in enumerate(data_list):
         # res_l2[ind, 5] = opt_l2
         # res_linf[ind, :5] = x_linf
         # res_linf[ind, 5] = opt_linf
-        res_lk[ind, :5] = x_lk
-        res_lk[ind, 5] = opt_lk
-        break
-    break
+        res_lk[ind*2 + i, :5] = x_lk
+        res_lk[ind*2 + i, 5] = opt_lk
+
+columns = ['alpha CPE phase factor', 'K CPE magnitude factor',
+           'ren encapsulation resistance',
+           'rex extracellular resistance',
+           'am membrane area in cm**2', 'objective value']
+index_rows = ['blue rat 2018_02_25 rep 1', 'blue rat 2018_02_25 rep 2',
+              'blue rat 2018_02_26 rep 1', 'blue rat 2018_02_26 rep 2',
+              'blue rat 2018_02_27 rep 1', 'blue rat 2018_02_27 rep 2',
+              'blue rat 2018_03_03 rep 1', 'blue rat 2018_03_03 rep 2',
+              'blue rat 2018_03_10 rep 1', 'blue rat 2018_03_10 rep 2']
+pd_lk = pd.DataFrame(res_lk, index=index_rows, columns=columns)
+
+# matlab results
+resnorm = np.array([1.1766e+10, 2.6300e+09, 7.5815e+11, 7.5814e+11,
+                    1.8967e+14, 3.2436e+14, 2.0287e+15, 1.4001e+15,
+                    1.7229e+11, 4.6677e+11])
+
+results = np.zeros((10, 3))
+results[:, 0] = resnorm
+results[:, 1] = res_lk[:, 5]
+results[:, 2] = results[:, 0] - results[:, 1]
+colz = ['MATLAB lsqnonlin', 'JADE DE',
+        'MATLAB - JADE (positive if JADE better)']
+pd_compare = pd.DataFrame(results, index=index_rows, columns=colz)
+print(pd_compare)
